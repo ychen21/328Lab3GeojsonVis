@@ -2,7 +2,7 @@
 <html lang="en-US">
     <head>
         <meta charset="utf-8">
-        <title>Earthquake List</title>
+        <title>Parks and Trails in Seattle</title>
         <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
         <link href="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.css" rel="stylesheet">
         <script src="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.js"></script>
@@ -12,20 +12,33 @@
                 padding: 0;
             }
 
+
             #container {
                 display: flex;
                 height: 100vh;
-                flex-direction: row;
+                flex-direction: row-reverse;
                 align-items: stretch;
             }
+            
+
             #side-panel {
-                flex-basis: 500px;
                 overflow-y: scroll;
+                z-index: 1;
+                flex-basis: 500px;
+            }
+
+
+            #list-title {
+                position: absolute;
+                top: 0;
+                left: 20px;
+                z-index: 1;
             }
 
             #map {
                 flex-grow: 1;
             }
+
             button {
                 margin-bottom: 10px;
             }
@@ -50,19 +63,21 @@
     </head> 
  <body>
     <main id="container">
-        <div id="side-panel">
- 
-            <h2>Earthquake List</h2>
-            <button>Sort by Magnitude</button>
- 
-            <table>
-                <tr>
-                    <th>id</th>
-                    <th>magnitude</th>
-                    <th>timestamp</th>
-                </tr>
-            </table>
- 
+        <div id="list-title">
+            <h2>Parks and Trails in Seattle</h2>
+            <button id="expand-btn">Expand List</button>
+            <button id="collapse-btn" style="display: none;">Collapse</button>
+        </div>
+        <div id="side-panel" style="display: none">
+                <button id="sort-btn">Sort by Longitude</button>
+                <table>
+                    <tr>
+                        <th>Park name</th>
+                        <th>Owner</th>
+                        <th>Longitude</th>
+                    </tr>
+                </table>
+
         </div>
         <div id="map"></div>
     </main>
@@ -70,75 +85,79 @@
         mapboxgl.accessToken = 'pk.eyJ1IjoiYW5lY3l6IiwiYSI6ImNseWNqenZidzFwdHAya29lZ3hwM3Z6emQifQ.lCdVlgRn3nCsA2ri9_GOLA';
         let map = new mapboxgl.Map({
             container: 'map', // container ID
-            style: 'mapbox://styles/mapbox/satellite-v9', // style URL
-            zoom: 5.5, // starting zoom
-            center: [138, 38] // starting center
+            style: 'mapbox://styles/mapbox/light-v10', // style URL
+            zoom: 10, // starting zoom
+            center: [-122.2151140079552, 47.55017612415869], // starting center
         });
 
         async function geojsonFetch() { 
-            let response, earthquakes, japan, table;
-            response = await fetch('assets/earthquakes.geojson');
-            earthquakes = await response.json();
-            response = await fetch('assets/japan.json');
-            japan = await response.json();
+            let response, earthquakes, japan, table, park, trail;
+            response = await fetch('assets/park.geojson');
+            park = await response.json();
+            response = await fetch('assets/trail.geojson');
+            trail = await response.json();
 
 
             //load data to the map as new layers and table on the side.
             map.on('load', function loadingData() {
 
-                map.addSource('earthquakes', {
+                map.addSource('park', {
                     type: 'geojson',
-                    data: earthquakes
+                    data: park
                 });
 
                 map.addLayer({
-                    'id': 'earthquakes-layer',
+                    'id': 'park-layer',
                     'type': 'circle',
-                    'source': 'earthquakes',
+                    'source': 'park',
                     'paint': {
-                        'circle-radius': 8,
-                        'circle-stroke-width': 2,
-                        'circle-color': 'red',
+                        'circle-radius': 6,
+                        'circle-stroke-width': 1,
+                        'circle-color': 'green',
                         'circle-stroke-color': 'white'
                     }
                 });
 
 
-                map.addSource('japan', {
+                map.addSource('trail', {
                     type: 'geojson',
-                    data: japan
+                    data: trail
                 });
 
                 map.addLayer({
-                    'id': 'japan-layer',
-                    'type': 'fill',
-                    'source': 'japan',
+                    'id': 'trail-layer',
+                    'type': 'line',
+                    'source': 'trail',
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
                     'paint': {
-                        'fill-color': '#0080ff', // blue color fill
-                        'fill-opacity': 0.5
+                        'line-color': '#0080ff', // blue color fill
+                        'line-opacity': 1
                     }
                 });
 
             });
             table = document.getElementsByTagName("table")[0];
             let row, cell1, cell2, cell3;
-            for (let i = 0; i < earthquakes.features.length; i++) {
+            for (let i = 0; i < park.features.length; i++) {
                 // Create an empty <tr> element and add it to the 1st position of the table:
                 row = table.insertRow(-1);
                 cell1 = row.insertCell(0);
                 cell2 = row.insertCell(1);
                 cell3 = row.insertCell(2);
-                cell1.innerHTML = earthquakes.features[i].properties.id;
-                cell2.innerHTML = earthquakes.features[i].properties.mag;
-                cell3.innerHTML = new Date(earthquakes.features[i].properties.time).toLocaleDateString(
-                    "en-US");
+                cell1.innerHTML = park.features[i].properties.SiteName;
+                cell2.innerHTML = park.features[i].properties.Owner;
+                cell3.innerHTML = park.features[i].geometry.coordinates[0];
+
             }
 
-            let btn = document.getElementsByTagName("button")[0];
+            let btn = document.getElementById("sort-btn");
 
             btn.addEventListener('click', sortTable);
 
-            // define the function to sort table
+            // Define the function to sort table
             function sortTable(e) {
                 let table, rows, switching, i, x, y, shouldSwitch;
                 table = document.getElementsByTagName("table")[0];
@@ -156,8 +175,8 @@
                         shouldSwitch = false;
                         /*Get the two elements you want to compare,
                         one from current row and one from the next:*/
-                        x = parseFloat(rows[i].getElementsByTagName("td")[1].innerHTML);
-                        y = parseFloat(rows[i + 1].getElementsByTagName("td")[1].innerHTML);
+                        x = parseFloat(rows[i].getElementsByTagName("td")[2].innerHTML);
+                        y = parseFloat(rows[i + 1].getElementsByTagName("td")[2].innerHTML);
                         //check if the two rows should switch place:
                         if (x < y) {
                             //if so, mark as a switch and break the loop:
@@ -173,11 +192,29 @@
                     }
                 }
             }
-
+                                        
+        
         };
 
 
         geojsonFetch();
+
+        const expandBtn = document.getElementById('expand-btn');
+        const collapseBtn = document.getElementById('collapse-btn');
+        const sidePanel = document.getElementById('side-panel');
+
+        expandBtn.addEventListener('click', function() {
+            sidePanel.style.display = 'block'; // Show side-panel
+            expandBtn.style.display = 'none'; // Hide expand button
+            collapseBtn.style.display = 'inline-block'; // Show collapse button
+        });
+
+        collapseBtn.addEventListener('click', function() {
+            sidePanel.style.display = 'none'; // Hide side-panel
+            expandBtn.style.display = 'inline-block'; // Show expand button
+            collapseBtn.style.display = 'none'; // Hide collapse button
+        });
+
 
     </script>
  </body>   
